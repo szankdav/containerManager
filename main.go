@@ -1,6 +1,7 @@
 package main
 
 import (
+	handler "container_manager/handlers"
 	"net/http"
 
 	"github.com/gin-contrib/cors"
@@ -22,6 +23,8 @@ func main() {
 	e.GET("/", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "index.html", gin.H{})
 	})
+
+	e.POST("/url", handler.GetUrlFromHeader)
 
 	e.Run(":8080")
 }
