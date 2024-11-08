@@ -1,0 +1,6 @@
+#topBackground {
+    height: 20vh;
+    background-image: url("../img/goDockerBanner.png");
+    background-repeat: no-repeat;
+    background-position: center;
+}
