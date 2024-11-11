@@ -38,18 +38,16 @@ func BuildDockerImage(c *gin.Context) {
 	defer cli.Close()
 }
 
-func CloneRepositoryWithUrl(url string, repoDirectory string) {
-	cmdStruct := exec.Command("powershell.exe", "git clone", url)
+func CloneRepositoryWithUrl(url string) {
+	cmdStruct := exec.Command("git", "clone", url)
 	out, err := cmdStruct.Output()
 	if err != nil {
 		fmt.Println(err)
 	}
 	fmt.Print(string(out))
-	cmdStruct.Dir = repoDirectory
-	fmt.Print(repoDirectory)
 }
 
-func getRepoDirectory(url string) string {
+func GetRepoFolderName(url string) string {
 	repoNameSlice := strings.Split(url, "/")
 	repoDirectoryNameWithGit := strings.Split(repoNameSlice[len(repoNameSlice)-1], ".")
 	repoDirectoryNameWithoutGit := repoDirectoryNameWithGit[0]
@@ -60,7 +58,7 @@ func getRepoDirectory(url string) string {
 	return workingDirectory + "\\" + repoDirectoryNameWithoutGit
 }
 
-func GetUrlFromHeader(c *gin.Context) {
+func GetUrlFromHeader(c *gin.Context) (string, error) {
 	reqBody, err := io.ReadAll(c.Request.Body)
 	urlFromBody := ""
 	if err != nil {
@@ -68,5 +66,14 @@ func GetUrlFromHeader(c *gin.Context) {
 	}
 	json.Unmarshal(reqBody, &urlFromBody)
 	c.Request.Body.Close()
-	CloneRepositoryWithUrl(urlFromBody, getRepoDirectory(urlFromBody))
+	return urlFromBody, err
+}
+
+func StartContainer(c *gin.Context) {
+	url, err := GetUrlFromHeader(c)
+	if err != nil {
+		fmt.Println(err)
+	}
+	CloneRepositoryWithUrl(url)
+	fmt.Print(GetRepoFolderName(url))
 }
