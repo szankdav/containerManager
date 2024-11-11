@@ -70,6 +70,7 @@ func BuildDockerImage(c *gin.Context, tags []string, dockerFolder string) error 
 		return err
 	}
 
+	// Add every file around the Dockerfile to the .tar file
 	tw.AddFS(os.DirFS(dockerFolder))
 
 	dockerFileTarReader := bytes.NewReader(buf.Bytes())
@@ -110,6 +111,7 @@ func RunContainer(c *gin.Context, imageName string) {
 	ctx := context.Background()
 	defer cli.Close()
 
+	// Pull the image
 	out, err := cli.ImagePull(ctx, imageName, image.PullOptions{})
 	if err != nil {
 		fmt.Println(err)
@@ -117,8 +119,10 @@ func RunContainer(c *gin.Context, imageName string) {
 	defer out.Close()
 	io.Copy(os.Stdout, out)
 
+	// Set the host
 	hostConfig := container.HostConfig{}
 
+	// Create the container
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
 		Image: imageName,
 		ExposedPorts: nat.PortSet{
@@ -129,6 +133,7 @@ func RunContainer(c *gin.Context, imageName string) {
 		fmt.Println(err)
 	}
 
+	// Start the container
 	err = cli.ContainerStart(ctx, resp.ID, container.StartOptions{})
 	if err != nil {
 		fmt.Println(err)
