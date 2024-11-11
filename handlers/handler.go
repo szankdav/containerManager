@@ -13,7 +13,10 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
 	"github.com/gin-gonic/gin"
 )
 
@@ -102,6 +105,37 @@ func BuildDockerImage(c *gin.Context, tags []string, dockerFolder string) error 
 
 }
 
+func RunContainer(c *gin.Context, imageName string) {
+	cli := ConnectDocker(c)
+	ctx := context.Background()
+	defer cli.Close()
+
+	out, err := cli.ImagePull(ctx, imageName, image.PullOptions{})
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer out.Close()
+	io.Copy(os.Stdout, out)
+
+	hostConfig := container.HostConfig{}
+
+	resp, err := cli.ContainerCreate(ctx, &container.Config{
+		Image: imageName,
+		ExposedPorts: nat.PortSet{
+			"3000/tcp": struct{}{},
+		},
+	}, &hostConfig, nil, nil, "")
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = cli.ContainerStart(ctx, resp.ID, container.StartOptions{})
+	if err != nil {
+		fmt.Println(err)
+	}
+
+}
+
 func CloneRepositoryWithUrl(url string) {
 	cmdStruct := exec.Command("git", "clone", url)
 	out, err := cmdStruct.Output()
@@ -171,5 +205,8 @@ func StartContainer(c *gin.Context) {
 	fmt.Print(string(out))
 
 	// Change back to home directory
-	os.Chdir(workingDirectory)
+	defer os.Chdir(workingDirectory)
+
+	defer RunContainer(c, tags[0])
+
 }
