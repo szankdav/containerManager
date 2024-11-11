@@ -26,9 +26,11 @@ func ConnectDocker(c *gin.Context) *client.Client {
 	return cli
 }
 
-func BuildDockerImage(c *gin.Context, tags []string, dockerfile string) error {
+func BuildDockerImage(c *gin.Context, tags []string, dockerFolder string) error {
 	cli := ConnectDocker(c)
 	ctx := context.Background()
+	// Dockerfile path
+	dockerfile := dockerFolder + "/Dockerfile"
 
 	// Create a buffer
 	buf := new(bytes.Buffer)
@@ -64,6 +66,8 @@ func BuildDockerImage(c *gin.Context, tags []string, dockerfile string) error {
 	if err != nil {
 		return err
 	}
+
+	tw.AddFS(os.DirFS(dockerFolder))
 
 	dockerFileTarReader := bytes.NewReader(buf.Bytes())
 
@@ -131,23 +135,41 @@ func StartContainer(c *gin.Context) {
 	if err != nil {
 		fmt.Println(err)
 	}
+
 	CloneRepositoryWithUrl(url)
-	workingDirectory, err := os.Getwd()
+	currentWorkingDirectory, err := os.Getwd()
 	if err != nil {
 		fmt.Println(err)
 	}
+	// Save the home directory
+	workingDirectory := currentWorkingDirectory
+
 	repoFolderName := GetRepoFolderName(url)
 	tags := []string{strings.ToLower(repoFolderName)}
-	dockerfile := workingDirectory + "/" + repoFolderName + "/Dockerfile"
-	err = BuildDockerImage(c, tags, dockerfile)
+	dockerFolder := currentWorkingDirectory + "/" + repoFolderName
+
+	// Change the current working directory to the repos path
+	os.Chdir(dockerFolder)
+	mydir, err := os.Getwd()
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(mydir)
+
+	// Build the image
+	err = BuildDockerImage(c, tags, mydir)
 	if err != nil {
 		log.Println(err)
 	}
 
+	// List the images
 	cmdStruct := exec.Command("docker", "images")
 	out, err := cmdStruct.Output()
 	if err != nil {
 		fmt.Println(err)
 	}
 	fmt.Print(string(out))
+
+	// Change back to home directory
+	os.Chdir(workingDirectory)
 }
