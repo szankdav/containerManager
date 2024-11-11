@@ -1,15 +1,18 @@
 package handler
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
 
-	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/gin-gonic/gin"
 )
@@ -23,19 +26,76 @@ func ConnectDocker(c *gin.Context) *client.Client {
 	return cli
 }
 
-func BuildDockerImage(c *gin.Context) {
+func BuildDockerImage(c *gin.Context, tags []string, dockerfile string) error {
 	cli := ConnectDocker(c)
 	ctx := context.Background()
 
-	images, err := cli.ImageList(ctx, image.ListOptions{})
+	// Create a buffer
+	buf := new(bytes.Buffer)
+	tw := tar.NewWriter(buf)
+	defer tw.Close()
+
+	// Create a filereader
+	dockerFileReader, err := os.Open(dockerfile)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	for _, image := range images {
-		fmt.Println(image.ID)
+	// Read the actual Dockerfile
+	readDockerFile, err := io.ReadAll(dockerFileReader)
+	if err != nil {
+		return err
 	}
+
+	// Make a TAR header for the file
+	tarHeader := &tar.Header{
+		Name: dockerfile,
+		Size: int64(len(readDockerFile)),
+	}
+
+	// Writes the header described for the TAR file
+	err = tw.WriteHeader(tarHeader)
+	if err != nil {
+		return err
+	}
+
+	// Writes the dockerfile data to the TAR file
+	_, err = tw.Write(readDockerFile)
+	if err != nil {
+		return err
+	}
+
+	dockerFileTarReader := bytes.NewReader(buf.Bytes())
+
+	// Define the build options to use for the file
+	buildOptions := types.ImageBuildOptions{
+		Context:    dockerFileTarReader,
+		Dockerfile: dockerfile,
+		Remove:     true,
+		Tags:       tags,
+	}
+
+	// Build the actual image
+	imageBuildResponse, err := cli.ImageBuild(
+		ctx,
+		dockerFileTarReader,
+		buildOptions,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	// Read the STDOUT from the build process
+	defer imageBuildResponse.Body.Close()
+	_, err = io.Copy(os.Stdout, imageBuildResponse.Body)
+	if err != nil {
+		return err
+	}
+
 	defer cli.Close()
+	return nil
+
 }
 
 func CloneRepositoryWithUrl(url string) {
@@ -51,11 +111,8 @@ func GetRepoFolderName(url string) string {
 	repoNameSlice := strings.Split(url, "/")
 	repoDirectoryNameWithGit := strings.Split(repoNameSlice[len(repoNameSlice)-1], ".")
 	repoDirectoryNameWithoutGit := repoDirectoryNameWithGit[0]
-	workingDirectory, err := os.Getwd()
-	if err != nil {
-		fmt.Println(err)
-	}
-	return workingDirectory + "\\" + repoDirectoryNameWithoutGit
+
+	return repoDirectoryNameWithoutGit
 }
 
 func GetUrlFromHeader(c *gin.Context) (string, error) {
@@ -75,5 +132,22 @@ func StartContainer(c *gin.Context) {
 		fmt.Println(err)
 	}
 	CloneRepositoryWithUrl(url)
-	fmt.Print(GetRepoFolderName(url))
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		fmt.Println(err)
+	}
+	repoFolderName := GetRepoFolderName(url)
+	tags := []string{strings.ToLower(repoFolderName)}
+	dockerfile := workingDirectory + "/" + repoFolderName + "/Dockerfile"
+	err = BuildDockerImage(c, tags, dockerfile)
+	if err != nil {
+		log.Println(err)
+	}
+
+	cmdStruct := exec.Command("docker", "images")
+	out, err := cmdStruct.Output()
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Print(string(out))
 }
