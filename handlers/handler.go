@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -270,4 +271,8 @@ func StartContainer(c *gin.Context) {
 	if err != nil {
 		log.Println(err)
 	}
+
+	containerURL := "http://localhost:" + portopening
+
+	c.JSON(http.StatusCreated, containerURL)
 }

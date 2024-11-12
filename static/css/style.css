@@ -4,3 +4,11 @@
     background-repeat: no-repeat;
     background-position: center;
 }
+
+#repo{
+    display: none;
+}
+
+#error{
+    display: none;
+}
