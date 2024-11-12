@@ -12,13 +12,42 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
+
+	"github.com/docker/docker/api/types"
+	network "github.com/docker/docker/api/types/network"
+	natting "github.com/docker/go-connections/nat"
 	"github.com/gin-gonic/gin"
 )
+
+func GetUrlFromHeader(c *gin.Context) (string, error) {
+	reqBody, err := io.ReadAll(c.Request.Body)
+	urlFromBody := ""
+	if err != nil {
+		fmt.Println("Error reading body:", err)
+	}
+	json.Unmarshal(reqBody, &urlFromBody)
+	c.Request.Body.Close()
+	return urlFromBody, err
+}
+
+func CloneRepositoryWithUrl(url string) {
+	cmdStruct := exec.Command("git", "clone", url)
+	out, err := cmdStruct.Output()
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Print(string(out))
+}
+
+func GetRepoFolderName(url string) string {
+	repoNameSlice := strings.Split(url, "/")
+	repoDirectoryNameWithGit := strings.Split(repoNameSlice[len(repoNameSlice)-1], ".")
+	repoDirectoryNameWithoutGit := repoDirectoryNameWithGit[0]
+
+	return repoDirectoryNameWithoutGit
+}
 
 func ConnectDocker(c *gin.Context) *client.Client {
 	//Connect to client (docker engine)
@@ -29,10 +58,12 @@ func ConnectDocker(c *gin.Context) *client.Client {
 	return cli
 }
 
+// Build image from the pulled repo
 func BuildDockerImage(c *gin.Context, tags []string, dockerFolder string) error {
 	cli := ConnectDocker(c)
 	ctx := context.Background()
-	// Dockerfile path
+
+	// Dockerfile path in the pulled folder
 	dockerfile := dockerFolder + "/Dockerfile"
 
 	// Create a buffer
@@ -106,88 +137,105 @@ func BuildDockerImage(c *gin.Context, tags []string, dockerFolder string) error 
 
 }
 
-func RunContainer(c *gin.Context, imageName string) {
+func RunContainer(c *gin.Context, imageName string, port string, inputEnv []string) error {
 	cli := ConnectDocker(c)
 	ctx := context.Background()
 	defer cli.Close()
 
-	// Pull the image
-	out, err := cli.ImagePull(ctx, imageName, image.PullOptions{})
+	// Define a PORT opening
+	newport, err := natting.NewPort("tcp", port)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Unable to create docker port")
+		return err
 	}
-	defer out.Close()
-	io.Copy(os.Stdout, out)
 
-	// Set the host
-	hostConfig := container.HostConfig{}
-
-	// Create the container
-	resp, err := cli.ContainerCreate(ctx, &container.Config{
-		Image: imageName,
-		ExposedPorts: nat.PortSet{
-			"3000/tcp": struct{}{},
+	// Configured hostConfig:
+	hostConfig := &container.HostConfig{
+		PortBindings: natting.PortMap{
+			newport: []natting.PortBinding{
+				{
+					HostIP:   "0.0.0.0",
+					HostPort: port,
+				},
+			},
 		},
-	}, &hostConfig, nil, nil, "")
-	if err != nil {
-		fmt.Println(err)
+		RestartPolicy: container.RestartPolicy{
+			Name: "always",
+		},
+		LogConfig: container.LogConfig{
+			Type:   "json-file",
+			Config: map[string]string{},
+		},
 	}
 
-	// Start the container
-	err = cli.ContainerStart(ctx, resp.ID, container.StartOptions{})
-	if err != nil {
-		fmt.Println(err)
+	// Define Network config:
+	networkConfig := &network.NetworkingConfig{
+		EndpointsConfig: map[string]*network.EndpointSettings{},
+	}
+	gatewayConfig := &network.EndpointSettings{
+		Gateway: "gatewayname",
+	}
+	networkConfig.EndpointsConfig["bridge"] = gatewayConfig
+
+	// Define ports to be exposed (has to be same as hostconfig.portbindings.newport)
+	exposedPorts := map[natting.Port]struct{}{
+		newport: struct{}{},
 	}
 
-}
-
-func CloneRepositoryWithUrl(url string) {
-	cmdStruct := exec.Command("git", "clone", url)
-	out, err := cmdStruct.Output()
-	if err != nil {
-		fmt.Println(err)
+	// Configuration for the container create
+	config := &container.Config{
+		Image:        imageName,
+		Env:          inputEnv,
+		ExposedPorts: exposedPorts,
+		Hostname:     fmt.Sprintf("%s-hostnameexample", imageName),
 	}
-	fmt.Print(string(out))
-}
 
-func GetRepoFolderName(url string) string {
-	repoNameSlice := strings.Split(url, "/")
-	repoDirectoryNameWithGit := strings.Split(repoNameSlice[len(repoNameSlice)-1], ".")
-	repoDirectoryNameWithoutGit := repoDirectoryNameWithGit[0]
+	// Creating the actual container
+	cont, err := cli.ContainerCreate(
+		ctx,
+		config,
+		hostConfig,
+		networkConfig,
+		nil,
+		imageName,
+	)
 
-	return repoDirectoryNameWithoutGit
-}
-
-func GetUrlFromHeader(c *gin.Context) (string, error) {
-	reqBody, err := io.ReadAll(c.Request.Body)
-	urlFromBody := ""
 	if err != nil {
-		fmt.Println("Error reading body:", err)
+		log.Println(err)
+		return err
 	}
-	json.Unmarshal(reqBody, &urlFromBody)
-	c.Request.Body.Close()
-	return urlFromBody, err
+
+	// Run the actual container
+	cli.ContainerStart(ctx, cont.ID, container.StartOptions{})
+	log.Printf("Container %s is created", cont.ID)
+
+	return nil
 }
 
+// This is the actual entrypoint
 func StartContainer(c *gin.Context) {
+	// Get the URL for the repo we want to clone
 	url, err := GetUrlFromHeader(c)
 	if err != nil {
 		fmt.Println(err)
 	}
 
+	// Clone the repo with the URL
 	CloneRepositoryWithUrl(url)
 	currentWorkingDirectory, err := os.Getwd()
 	if err != nil {
 		fmt.Println(err)
 	}
-	// Save the home directory
+
+	// Save the home directory for later
 	workingDirectory := currentWorkingDirectory
 
+	// Save the name of the cloned repo folder
 	repoFolderName := GetRepoFolderName(url)
 	tags := []string{strings.ToLower(repoFolderName)}
 	dockerFolder := currentWorkingDirectory + "/" + repoFolderName
 
-	// Change the current working directory to the repos path
+	// Change the current working directory to the repo folder
 	os.Chdir(dockerFolder)
 	mydir, err := os.Getwd()
 	if err != nil {
@@ -201,7 +249,7 @@ func StartContainer(c *gin.Context) {
 		log.Println(err)
 	}
 
-	// List the images
+	// List the images, so we can make sure the image is created
 	cmdStruct := exec.Command("docker", "images")
 	out, err := cmdStruct.Output()
 	if err != nil {
@@ -212,6 +260,14 @@ func StartContainer(c *gin.Context) {
 	// Change back to home directory
 	defer os.Chdir(workingDirectory)
 
-	defer RunContainer(c, tags[0])
+	// Define the port we want to use on local
+	portopening := "3000"
+	inputEnv := []string{fmt.Sprintf("LISTENINGPORT=%s", portopening)}
 
+	// Run the container
+	err = RunContainer(c, tags[0], portopening, inputEnv)
+
+	if err != nil {
+		log.Println(err)
+	}
 }
