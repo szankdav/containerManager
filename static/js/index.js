@@ -17,6 +17,19 @@ document.getElementById("form").addEventListener("submit", async (e) => {
   }
 });
 
+document.getElementById("test").addEventListener("click", async () => {
+  try {
+    const response = await fetch(`${baseURL}/test`)
+    if(!response.ok){
+      throw new Error(`Response status: ${response.status}`);
+    } else {
+      return response;
+    }
+  } catch (error) {
+    console.error("Error: ", error.message);
+  }
+})
+
 async function sendUrlForGo(url) {
   try {
     const response = await fetch(`${baseURL}/url`, {

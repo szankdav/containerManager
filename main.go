@@ -16,7 +16,8 @@ func main() {
 		c.HTML(http.StatusOK, "index.html", gin.H{})
 	})
 
-	e.POST("/url", handler.SpinUpTest)
+	e.POST("/url", handler.SpinUpContainer)
+	e.GET("/test", handler.SpinUpTest)
 
 	e.Run(":8080")
 }

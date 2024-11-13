@@ -9,3 +9,8 @@
  - In the terminal you can see the process, and that the docker image is created from the repository link
  - After the container started, you can visit it with the appearing button
  - Example repository: https://github.com/szankdav/nodeJS_Hello_World
+
+
+
+ go run github.com/playwright-community/playwright-go/cmd/playwright@latest install --with-deps
+

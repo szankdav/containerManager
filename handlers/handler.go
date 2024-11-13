@@ -3,6 +3,8 @@ package handler
 import (
 	"archive/tar"
 	"bytes"
+
+	"container_manager/playwright"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -155,7 +157,7 @@ func BuildDockerImage(c *gin.Context, tags []string, dockerFolder string) error 
 // }
 
 // This is the actual entrypoint
-func SpinUpTest(c *gin.Context) {
+func SpinUpContainer(c *gin.Context) {
 	ctx := context.Background()
 	// Get the URL for the repo we want to clone
 	url, err := GetUrlFromHeader(c)
@@ -209,7 +211,7 @@ func SpinUpTest(c *gin.Context) {
 			},
 			HostConfigModifier: func(hostConfig *container.HostConfig) {
 				hostConfig.PortBindings = nat.PortMap{
-					"3000/tcp": []nat.PortBinding{
+					"8080/tcp": []nat.PortBinding{
 						{
 							HostIP:   "0.0.0.0",
 							HostPort: "3000",
@@ -217,8 +219,8 @@ func SpinUpTest(c *gin.Context) {
 					},
 				}
 			},
-			ExposedPorts: []string{"3000/tcp"},
-			WaitingFor:   wait.ForListeningPort("3000/tcp"),
+			ExposedPorts: []string{"8080/tcp"},
+			WaitingFor:   wait.ForListeningPort("8080/tcp"),
 		},
 		Started: true,
 	})
@@ -235,4 +237,9 @@ func SpinUpTest(c *gin.Context) {
 	containerURL := "http://localhost:3000"
 
 	c.JSON(http.StatusCreated, containerURL)
+}
+
+func SpinUpTest(c *gin.Context) {
+	playwright.ButtonClickTest("http://localhost:3000", "increaseButton", "decreaseButton", "countNumber")
+	c.JSON(http.StatusAccepted, 200)
 }
