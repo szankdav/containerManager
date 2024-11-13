@@ -13,12 +13,13 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/docker/docker/api/types"
-	network "github.com/docker/docker/api/types/network"
-	natting "github.com/docker/go-connections/nat"
+	"github.com/docker/docker/api/types/container"
 	"github.com/gin-gonic/gin"
 )
 
@@ -138,83 +139,24 @@ func BuildDockerImage(c *gin.Context, tags []string, dockerFolder string) error 
 
 }
 
-func RunContainer(c *gin.Context, imageName string, port string, inputEnv []string) error {
-	cli := ConnectDocker(c)
-	ctx := context.Background()
-	defer cli.Close()
-
-	// Define a PORT opening
-	newport, err := natting.NewPort("tcp", port)
-	if err != nil {
-		fmt.Println("Unable to create docker port")
-		return err
-	}
-
-	// Configured hostConfig:
-	hostConfig := &container.HostConfig{
-		PortBindings: natting.PortMap{
-			newport: []natting.PortBinding{
-				{
-					HostIP:   "0.0.0.0",
-					HostPort: port,
-				},
-			},
-		},
-		RestartPolicy: container.RestartPolicy{
-			Name: "always",
-		},
-		LogConfig: container.LogConfig{
-			Type:   "json-file",
-			Config: map[string]string{},
-		},
-	}
-
-	// Define Network config:
-	networkConfig := &network.NetworkingConfig{
-		EndpointsConfig: map[string]*network.EndpointSettings{},
-	}
-	gatewayConfig := &network.EndpointSettings{
-		Gateway: "gatewayname",
-	}
-	networkConfig.EndpointsConfig["bridge"] = gatewayConfig
-
-	// Define ports to be exposed (has to be same as hostconfig.portbindings.newport)
-	exposedPorts := map[natting.Port]struct{}{
-		newport: struct{}{},
-	}
-
-	// Configuration for the container create
-	config := &container.Config{
-		Image:        imageName,
-		Env:          inputEnv,
-		ExposedPorts: exposedPorts,
-		Hostname:     fmt.Sprintf("%s-hostnameexample", imageName),
-	}
-
-	// Creating the actual container
-	cont, err := cli.ContainerCreate(
-		ctx,
-		config,
-		hostConfig,
-		networkConfig,
-		nil,
-		imageName,
-	)
-
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
-	// Run the actual container
-	cli.ContainerStart(ctx, cont.ID, container.StartOptions{})
-	log.Printf("Container %s is created", cont.ID)
-
-	return nil
-}
+// func SetupContainer(t *testing.T, image string) {
+// 	ctx := context.Background()
+// 	req := testcontainers.ContainerRequest{
+// 		Image:        image,
+// 		ExposedPorts: []string{"3000/tcp"},
+// 		WaitingFor:   wait.ForListeningPort("3000/tcp"),
+// 	}
+// 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+// 		ContainerRequest: req,
+// 		Started:          true,
+// 	})
+// 	testcontainers.CleanupContainer(t, container)
+// 	require.NoError(t, err)
+// }
 
 // This is the actual entrypoint
-func StartContainer(c *gin.Context) {
+func SpinUpTest(c *gin.Context) {
+	ctx := context.Background()
 	// Get the URL for the repo we want to clone
 	url, err := GetUrlFromHeader(c)
 	if err != nil {
@@ -258,21 +200,39 @@ func StartContainer(c *gin.Context) {
 	}
 	fmt.Print(string(out))
 
+	// Start container with testcontainers
+	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: testcontainers.ContainerRequest{
+			Image: tags[0],
+			ConfigModifier: func(config *container.Config) {
+				config.Env = []string{"a=b"}
+			},
+			HostConfigModifier: func(hostConfig *container.HostConfig) {
+				hostConfig.PortBindings = nat.PortMap{
+					"3000/tcp": []nat.PortBinding{
+						{
+							HostIP:   "0.0.0.0",
+							HostPort: "3000",
+						},
+					},
+				}
+			},
+			ExposedPorts: []string{"3000/tcp"},
+			WaitingFor:   wait.ForListeningPort("3000/tcp"),
+		},
+		Started: true,
+	})
+
+	fmt.Println(container.ContainerIP(ctx))
+
 	// Change back to home directory
 	defer os.Chdir(workingDirectory)
-
-	// Define the port we want to use on local
-	portopening := "3000"
-	inputEnv := []string{fmt.Sprintf("LISTENINGPORT=%s", portopening)}
-
-	// Run the container
-	err = RunContainer(c, tags[0], portopening, inputEnv)
 
 	if err != nil {
 		log.Println(err)
 	}
 
-	containerURL := "http://localhost:" + portopening
+	containerURL := "http://localhost:3000"
 
 	c.JSON(http.StatusCreated, containerURL)
 }
