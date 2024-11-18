@@ -15,7 +15,13 @@
     <div class="container mt-5">
         <div class="row">
             <div class="col-12">
-                <h1>Go go GO!</h1>
+                <h1>Start your github project in a docker container!</h1>
+                <h3>Paste your repository URL here and click Start!</h3>
+                <p>Prerequisites:</p>
+                <ul>
+                    <li>The project has a Dockerfile in the root folder</li>
+                    <li>Port number 3000 is exposed in the Dockerfile</li>
+                </ul>
                 <form id="form">
                     <div class="mb-3">
                         <label for="repositoryUrl" class="form-label">URL:</label>
@@ -25,10 +31,11 @@
                     <button type="submit" class="btn btn-primary">Start!</button>
                 </form>
             </div>
-            <div id="repo" class="col-12">
+            <div id="repo" class="col-12 mt-3">
                 <h3>Container successfully started! Visit here:</h1>
                 <a id="visitContainer" class="btn btn-success" target="_blank">GO!</a>
-                <button id="test" class="btn btn-danger">Run test!</button>
+                <button id="test" class="btn btn-warning">Run test!</button>
+                <p class="mt-3">Tests passed: <span id="testPassed"></span></p>
             </div>
             <div id="error" class="col-12">
                 <h3>Something went wrong...</h3>

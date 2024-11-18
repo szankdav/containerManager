@@ -21,30 +21,53 @@ func assertEqual(expected, actual interface{}) {
 	}
 }
 
-func assertNumbersWhenIncreaseClicked(page playwright.Page, btnOneId string, numberFieldId string) {
-	numberOnPageBeforeClickString, err := page.Locator("." + numberFieldId).TextContent()
+func isCounterLoaded(page playwright.Page) bool {
+	numberOnPageBeforeClickStringIsLoaded, err := page.GetByTestId("countNumber").IsVisible()
 	if err != nil {
 		fmt.Printf("Can't locate number: %v", err)
 	}
-	numberOnPageBeforeClickInt, err := strconv.Atoi(numberOnPageBeforeClickString)
-	if err != nil {
-		fmt.Printf("Can't convert string: %v", err)
+	return numberOnPageBeforeClickStringIsLoaded
+}
+
+func assertNumbersWhenIncreaseClicked(page playwright.Page) {
+	var numberOnPageBeforeClickInt int
+	var numberOnPageAfterClickInt int
+	var err error
+	if isCounterLoaded(page) {
+		var numberOnPageBeforeClickString, err = page.GetByTestId("countNumber").TextContent()
+		if err != nil {
+			fmt.Printf("Can't locate number: %v", err)
+		}
+		numberOnPageBeforeClickInt, err = strconv.Atoi(numberOnPageBeforeClickString)
+		if err != nil {
+			fmt.Printf("Can't convert string: %v", err)
+		}
 	}
-	buttonOne := page.Locator("." + btnOneId)
-	buttonOne.Click()
-	numberOnPageAfterClickString, err := page.Locator("." + numberFieldId).TextContent()
-	if err != nil {
-		fmt.Printf("Can't locate number: %v", err)
+
+	increaseButton := page.GetByTestId("increaseButton")
+	increaseButton.Click()
+
+	if isCounterLoaded(page) {
+		var numberOnPageAfterClickString, err = page.GetByTestId("countNumber").TextContent()
+		fmt.Println(numberOnPageAfterClickString)
+		if err != nil {
+			fmt.Printf("Can't locate number: %v", err)
+		}
+		numberOnPageAfterClickInt, err = strconv.Atoi(numberOnPageAfterClickString)
+		if err != nil {
+			fmt.Printf("Can't convert string: %v", err)
+		}
 	}
-	numberOnPageAfterClickInt, err := strconv.Atoi(numberOnPageAfterClickString)
-	if err != nil {
-		fmt.Printf("Can't convert string: %v", err)
-	}
-	assertErrorToNilf("could not determine the count amount: %w", err)
+
+	assertErrorToNilf("Could not determine the count amount: %w", err)
 	assertEqual(numberOnPageBeforeClickInt, numberOnPageAfterClickInt)
 }
 
-func ButtonClickTest(url string, btnOneId string, btnTwoId string, numberFieldId string) {
+func ButtonClickTest() {
+	err := playwright.Install()
+	if err != nil {
+		log.Fatalf("could not install playwright dependencies: %v", err)
+	}
 	pw, err := playwright.Run()
 	if err != nil {
 		log.Fatalf("Could not start playwright: %v", err)
@@ -72,13 +95,13 @@ func ButtonClickTest(url string, btnOneId string, btnTwoId string, numberFieldId
 		log.Printf("<< %v %s\n", response.Status(), response.URL())
 	})
 
-	if _, err = page.Goto(url, playwright.PageGotoOptions{
+	if _, err = page.Goto("http://localhost:3000", playwright.PageGotoOptions{
 		WaitUntil: playwright.WaitUntilStateNetworkidle,
 	}); err != nil {
 		log.Fatalf("Could not visit the desired page: %v", err)
 	}
 
-	assertNumbersWhenIncreaseClicked(page, btnOneId, numberFieldId)
+	assertNumbersWhenIncreaseClicked(page)
 
 	if err = browser.Close(); err != nil {
 		log.Fatalf("Could not close the desired page: %v", err)

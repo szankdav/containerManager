@@ -1,6 +1,8 @@
 "use strict";
 const baseURL = "http://localhost:8080";
 
+let testPassed = 0;
+
 document.getElementById("form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const repositoryUrl = document.getElementById("repositoryUrl").value;
@@ -23,6 +25,8 @@ document.getElementById("test").addEventListener("click", async () => {
     if(!response.ok){
       throw new Error(`Response status: ${response.status}`);
     } else {
+      testPassed += 1;
+      document.getElementById("testPassed").innerText = testPassed
       return response;
     }
   } catch (error) {

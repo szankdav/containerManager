@@ -1,6 +1,8 @@
 # How to run:
 
 ## On local
+ - WSL and Docker Desktop is required for local usage!
+ - Start Docker Desktop
  - Start WSL terminal within project folder
  - Run go run main.go
  - Visit localhost:8080
@@ -8,9 +10,4 @@
  - Click Start!
  - In the terminal you can see the process, and that the docker image is created from the repository link
  - After the container started, you can visit it with the appearing button
- - Example repository: https://github.com/szankdav/nodeJS_Hello_World
-
-
-
- go run github.com/playwright-community/playwright-go/cmd/playwright@latest install --with-deps
-
+ - Currently, because of the settings, you can use this example repository for the tests: https://github.com/szankdav/counterApp.git

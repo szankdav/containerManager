@@ -211,7 +211,7 @@ func SpinUpContainer(c *gin.Context) {
 			},
 			HostConfigModifier: func(hostConfig *container.HostConfig) {
 				hostConfig.PortBindings = nat.PortMap{
-					"8080/tcp": []nat.PortBinding{
+					"3000/tcp": []nat.PortBinding{
 						{
 							HostIP:   "0.0.0.0",
 							HostPort: "3000",
@@ -219,8 +219,8 @@ func SpinUpContainer(c *gin.Context) {
 					},
 				}
 			},
-			ExposedPorts: []string{"8080/tcp"},
-			WaitingFor:   wait.ForListeningPort("8080/tcp"),
+			ExposedPorts: []string{"3000/tcp"},
+			WaitingFor:   wait.ForListeningPort("3000/tcp"),
 		},
 		Started: true,
 	})
@@ -240,6 +240,6 @@ func SpinUpContainer(c *gin.Context) {
 }
 
 func SpinUpTest(c *gin.Context) {
-	playwright.ButtonClickTest("http://localhost:3000", "increaseButton", "decreaseButton", "countNumber")
-	c.JSON(http.StatusAccepted, 200)
+	playwright.ButtonClickTest()
+	c.JSON(http.StatusAccepted, "Increase test passed!")
 }
