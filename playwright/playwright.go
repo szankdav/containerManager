@@ -29,7 +29,7 @@ func isCounterLoaded(page playwright.Page) bool {
 	return numberOnPageBeforeClickStringIsLoaded
 }
 
-func assertNumbersWhenIncreaseClicked(page playwright.Page) {
+func AssertNumbersWhenIncreaseClicked(page playwright.Page) {
 	var numberOnPageBeforeClickInt int
 	var numberOnPageAfterClickInt int
 	var err error
@@ -63,7 +63,41 @@ func assertNumbersWhenIncreaseClicked(page playwright.Page) {
 	assertEqual(numberOnPageBeforeClickInt, numberOnPageAfterClickInt)
 }
 
-func ButtonClickTest() {
+func AssertNumbersWhenDecreaseClicked(page playwright.Page) {
+	var numberOnPageBeforeClickInt int
+	var numberOnPageAfterClickInt int
+	var err error
+	if isCounterLoaded(page) {
+		var numberOnPageBeforeClickString, err = page.GetByTestId("countNumber").TextContent()
+		if err != nil {
+			fmt.Printf("Can't locate number: %v", err)
+		}
+		numberOnPageBeforeClickInt, err = strconv.Atoi(numberOnPageBeforeClickString)
+		if err != nil {
+			fmt.Printf("Can't convert string: %v", err)
+		}
+	}
+
+	decreaseButton := page.GetByTestId("decreaseButton")
+	decreaseButton.Click()
+
+	if isCounterLoaded(page) {
+		var numberOnPageAfterClickString, err = page.GetByTestId("countNumber").TextContent()
+		fmt.Println(numberOnPageAfterClickString)
+		if err != nil {
+			fmt.Printf("Can't locate number: %v", err)
+		}
+		numberOnPageAfterClickInt, err = strconv.Atoi(numberOnPageAfterClickString)
+		if err != nil {
+			fmt.Printf("Can't convert string: %v", err)
+		}
+	}
+
+	assertErrorToNilf("Could not determine the count amount: %w", err)
+	assertEqual(numberOnPageBeforeClickInt, numberOnPageAfterClickInt)
+}
+
+func RunTests(test func(page playwright.Page)) {
 	err := playwright.Install()
 	if err != nil {
 		log.Fatalf("could not install playwright dependencies: %v", err)
@@ -101,7 +135,7 @@ func ButtonClickTest() {
 		log.Fatalf("Could not visit the desired page: %v", err)
 	}
 
-	assertNumbersWhenIncreaseClicked(page)
+	test(page)
 
 	if err = browser.Close(); err != nil {
 		log.Fatalf("Could not close the desired page: %v", err)

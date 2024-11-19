@@ -1,7 +1,8 @@
 "use strict";
 const baseURL = "http://localhost:8080";
 
-let testPassed = 0;
+let increaseTestPassed = 0;
+let decreaseTestPassed = 0;
 
 document.getElementById("form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -9,6 +10,7 @@ document.getElementById("form").addEventListener("submit", async (e) => {
   const response = await sendUrlForGo(repositoryUrl);
   if (response.status == 201) {
     document.getElementById("repo").style.display = "unset";
+    document.getElementById("tests").style.display = "unset";
     response
       .json()
       .then((data) =>
@@ -19,14 +21,29 @@ document.getElementById("form").addEventListener("submit", async (e) => {
   }
 });
 
-document.getElementById("test").addEventListener("click", async () => {
+document.getElementById("increaseTest").addEventListener("click", async () => {
   try {
-    const response = await fetch(`${baseURL}/test`)
+    const response = await fetch(`${baseURL}/increaseTest`)
     if(!response.ok){
       throw new Error(`Response status: ${response.status}`);
     } else {
-      testPassed += 1;
-      document.getElementById("testPassed").innerText = testPassed
+      increaseTestPassed += 1;
+      document.getElementById("increaseTestPassed").innerText = increaseTestPassed
+      return response;
+    }
+  } catch (error) {
+    console.error("Error: ", error.message);
+  }
+})
+
+document.getElementById("decreaseTest").addEventListener("click", async () => {
+  try {
+    const response = await fetch(`${baseURL}/decreaseTest`)
+    if(!response.ok){
+      throw new Error(`Response status: ${response.status}`);
+    } else {
+      decreaseTestPassed += 1;
+      document.getElementById("decreaseTestPassed").innerText = decreaseTestPassed
       return response;
     }
   } catch (error) {

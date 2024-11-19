@@ -4,7 +4,7 @@
  - WSL and Docker Desktop is required for local usage!
  - Start Docker Desktop
  - Start WSL terminal within project folder
- - Run go run main.go
+ - Run go run cmd/app/main.go
  - Visit localhost:8080
  - Add an existing GitHub repository link
  - Click Start!

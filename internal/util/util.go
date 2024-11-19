@@ -1,28 +1,24 @@
-package handler
+package util
 
 import (
 	"archive/tar"
 	"bytes"
-
-	"container_manager/playwright"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"os"
 	"os/exec"
 	"strings"
 
-	"github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
-
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
 	"github.com/gin-gonic/gin"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 func GetUrlFromHeader(c *gin.Context) (string, error) {
@@ -36,13 +32,26 @@ func GetUrlFromHeader(c *gin.Context) (string, error) {
 	return urlFromBody, err
 }
 
-func CloneRepositoryWithUrl(url string) {
-	cmdStruct := exec.Command("git", "clone", url)
-	out, err := cmdStruct.Output()
+func CheckIfRepoAlreadyCloned(repoFolderName string) bool {
+	currentWorkingDirectory, err := os.Getwd()
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Print(string(out))
+	if _, err := os.Stat(currentWorkingDirectory + "/" + repoFolderName); !os.IsNotExist(err) {
+		return true
+	}
+	return false
+}
+
+func CloneRepositoryWithUrl(url string) {
+	if !CheckIfRepoAlreadyCloned(GetRepoFolderName(url)) {
+		cmdStruct := exec.Command("git", "clone", url)
+		out, err := cmdStruct.Output()
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Print(string(out))
+	}
 }
 
 func GetRepoFolderName(url string) string {
@@ -141,68 +150,9 @@ func BuildDockerImage(c *gin.Context, tags []string, dockerFolder string) error 
 
 }
 
-// func SetupContainer(t *testing.T, image string) {
-// 	ctx := context.Background()
-// 	req := testcontainers.ContainerRequest{
-// 		Image:        image,
-// 		ExposedPorts: []string{"3000/tcp"},
-// 		WaitingFor:   wait.ForListeningPort("3000/tcp"),
-// 	}
-// 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-// 		ContainerRequest: req,
-// 		Started:          true,
-// 	})
-// 	testcontainers.CleanupContainer(t, container)
-// 	require.NoError(t, err)
-// }
-
-// This is the actual entrypoint
-func SpinUpContainer(c *gin.Context) {
-	ctx := context.Background()
-	// Get the URL for the repo we want to clone
-	url, err := GetUrlFromHeader(c)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	// Clone the repo with the URL
-	CloneRepositoryWithUrl(url)
-	currentWorkingDirectory, err := os.Getwd()
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	// Save the home directory for later
-	workingDirectory := currentWorkingDirectory
-
-	// Save the name of the cloned repo folder
-	repoFolderName := GetRepoFolderName(url)
-	tags := []string{strings.ToLower(repoFolderName)}
-	dockerFolder := currentWorkingDirectory + "/" + repoFolderName
-
-	// Change the current working directory to the repo folder
-	os.Chdir(dockerFolder)
-	mydir, err := os.Getwd()
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println(mydir)
-
-	// Build the image
-	err = BuildDockerImage(c, tags, mydir)
-	if err != nil {
-		log.Println(err)
-	}
-
-	// List the images, so we can make sure the image is created
-	cmdStruct := exec.Command("docker", "images")
-	out, err := cmdStruct.Output()
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Print(string(out))
-
+func RunDockerImage(tags []string) {
 	// Start container with testcontainers
+	ctx := context.Background()
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			Image: tags[0],
@@ -224,22 +174,35 @@ func SpinUpContainer(c *gin.Context) {
 		},
 		Started: true,
 	})
-
-	fmt.Println(container.ContainerIP(ctx))
-
-	// Change back to home directory
-	defer os.Chdir(workingDirectory)
-
 	if err != nil {
 		log.Println(err)
 	}
 
-	containerURL := "http://localhost:3000"
-
-	c.JSON(http.StatusCreated, containerURL)
+	fmt.Println(container.ContainerIP(ctx))
 }
 
-func SpinUpTest(c *gin.Context) {
-	playwright.ButtonClickTest()
-	c.JSON(http.StatusAccepted, "Increase test passed!")
+func CheckIfDockerImageAlreadyExists(tags []string) bool {
+	// List the images, so we can make sure the image is created
+	var imageExist bool = false
+	cmdStruct := exec.Command("docker", "images")
+	out, err := cmdStruct.Output()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	if strings.Contains(string(out), tags[0]) {
+		imageExist = true
+	}
+
+	fmt.Print(string(out))
+
+	return imageExist
+}
+
+func ChangeWorkingDirectory(currentWorkingDirectory string, repoFolderName string) {
+	// Save the name of the cloned repo folder
+	var dockerFolder string = currentWorkingDirectory + "/" + repoFolderName
+
+	// Change the current working directory to the repo folder
+	os.Chdir(dockerFolder)
 }

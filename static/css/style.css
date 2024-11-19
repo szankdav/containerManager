@@ -9,6 +9,10 @@
     display: none;
 }
 
+#tests {
+    display: none;
+}
+
 #error{
     display: none;
 }
