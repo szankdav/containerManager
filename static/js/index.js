@@ -1,8 +1,10 @@
 "use strict";
 const baseURL = "http://localhost:8080";
 
-let increaseTestPassed = 0;
-let decreaseTestPassed = 0;
+const testCounters = new Map([
+  ["increaseButton", 0],
+  ["decreaseButton", 0],
+]);
 
 document.getElementById("form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -21,35 +23,79 @@ document.getElementById("form").addEventListener("submit", async (e) => {
   }
 });
 
-document.getElementById("increaseTest").addEventListener("click", async () => {
+async function runTest(e) {
+  const testButtonId = e.target.id;
+  console.log(testButtonId);
   try {
-    const response = await fetch(`${baseURL}/increaseTest`)
-    if(!response.ok){
+    const response = await fetch(`${baseURL}/test`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(testButtonId),
+    });
+    if (!response.ok) {
       throw new Error(`Response status: ${response.status}`);
     } else {
-      increaseTestPassed += 1;
-      document.getElementById("increaseTestPassed").innerText = increaseTestPassed
-      return response;
+      response.json().then((data) => {
+        if (data == testButtonId) {
+          testCounters.set(`${data}`, testCounters.get(`${data}`) + 1);
+          document.getElementById(`${data}TestPassed`).innerText = testCounters.get(`${data}`);
+        }
+      });
     }
   } catch (error) {
     console.error("Error: ", error.message);
   }
-})
+}
 
-document.getElementById("decreaseTest").addEventListener("click", async () => {
-  try {
-    const response = await fetch(`${baseURL}/decreaseTest`)
-    if(!response.ok){
-      throw new Error(`Response status: ${response.status}`);
-    } else {
-      decreaseTestPassed += 1;
-      document.getElementById("decreaseTestPassed").innerText = decreaseTestPassed
-      return response;
-    }
-  } catch (error) {
-    console.error("Error: ", error.message);
-  }
-})
+const testButtons = document.getElementsByClassName("testButton");
+for (let i = 0; i < testButtons.length; i++) {
+  testButtons[i].addEventListener("click", runTest);
+}
+
+// document.getElementsByClassName("testButton").addEventListener("click", async (e) => {
+//   testButtonId = e.target.id
+//   console.log(testButtonId)
+//   try {
+//     const response = await fetch(`${baseURL}/test`, {
+//       method: "POST",
+//       headers: {
+//         "Content-Type": "application/json",
+//         Accept: "application/json",
+//       },
+//       body: JSON.stringify(testButtonId),
+//     })
+//     if(!response.ok){
+//       throw new Error(`Response status: ${response.status}`);
+//     } else {
+//       response.json().then((data) => {
+//           if(data == testButtonId){
+//             testCounters[data] += 1;
+//             document.getElementById(data).innerText = testCounters[data]
+//           }
+//       })
+//     }
+//   } catch (error) {
+//     console.error("Error: ", error.message);
+//   }
+// })
+
+// document.getElementById("decreaseTest").addEventListener("click", async () => {
+//   try {
+//     const response = await fetch(`${baseURL}/test`)
+//     if(!response.ok){
+//       throw new Error(`Response status: ${response.status}`);
+//     } else {
+//       decreaseTestPassed += 1;
+//       document.getElementById("decreaseTestPassed").innerText = decreaseTestPassed
+//       return response;
+//     }
+//   } catch (error) {
+//     console.error("Error: ", error.message);
+//   }
+// })
 
 async function sendUrlForGo(url) {
   try {

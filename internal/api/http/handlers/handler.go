@@ -1,8 +1,8 @@
 package handler
 
 import (
-	util "container_manager/internal/util"
-	playwright "container_manager/playwright"
+	util "example.com/container-manager/internal/util"
+	playwright "example.com/container-manager/playwright"
 
 	"fmt"
 
@@ -63,12 +63,11 @@ func StartContainer(c *gin.Context) {
 	c.JSON(http.StatusCreated, containerURL)
 }
 
-func SpinUpIncreaseTest(c *gin.Context) {
-	playwright.RunTests(playwright.AssertNumbersWhenIncreaseClicked)
-	c.JSON(http.StatusAccepted, "Increase test passed!")
-}
-
-func SpinUpDecreaseTest(c *gin.Context) {
-	playwright.RunTests(playwright.AssertNumbersWhenDecreaseClicked)
-	c.JSON(http.StatusAccepted, "Decrease test passed!")
+func SpinUpTest(c *gin.Context) {
+	buttonId, err := util.GetButtonIdFromBody(c)
+	if err != nil {
+		fmt.Println(err)
+	}
+	playwright.RunTests(playwright.AssertNumbersWhenAmountChangedButtonClicked, buttonId)
+	c.JSON(http.StatusOK, buttonId)
 }

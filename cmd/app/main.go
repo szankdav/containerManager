@@ -1,8 +1,9 @@
 package main
 
 import (
-	handler "container_manager/internal/api/http/handlers"
 	"net/http"
+
+	handler "example.com/container-manager/internal/api/http/handlers"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,8 +18,7 @@ func main() {
 	})
 
 	e.POST("/url", handler.StartContainer)
-	e.GET("/increaseTest", handler.SpinUpIncreaseTest)
-	e.GET("/decreaseTest", handler.SpinUpDecreaseTest)
+	e.POST("/test", handler.SpinUpTest)
 
 	e.Run(":8080")
 }

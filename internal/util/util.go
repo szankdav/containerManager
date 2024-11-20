@@ -32,6 +32,17 @@ func GetUrlFromHeader(c *gin.Context) (string, error) {
 	return urlFromBody, err
 }
 
+func GetButtonIdFromBody(c *gin.Context) (string, error) {
+	reqBody, err := io.ReadAll(c.Request.Body)
+	buttonIdFromBody := ""
+	if err != nil {
+		fmt.Println("Error reading body:", err)
+	}
+	json.Unmarshal(reqBody, &buttonIdFromBody)
+	c.Request.Body.Close()
+	return buttonIdFromBody, err
+}
+
 func CheckIfRepoAlreadyCloned(repoFolderName string) bool {
 	currentWorkingDirectory, err := os.Getwd()
 	if err != nil {

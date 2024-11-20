@@ -1,4 +1,4 @@
-module container_manager
+module example.com/container-manager
 
 go 1.23.2
 
