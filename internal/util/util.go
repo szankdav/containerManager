@@ -21,26 +21,26 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-func GetUrlFromHeader(c *gin.Context) (string, error) {
+func GetUrlFromBody(c *gin.Context) (string, error) {
 	reqBody, err := io.ReadAll(c.Request.Body)
-	urlFromBody := ""
+	var body map[string]string
 	if err != nil {
 		fmt.Println("Error reading body:", err)
 	}
-	json.Unmarshal(reqBody, &urlFromBody)
+	json.Unmarshal(reqBody, &body)
 	c.Request.Body.Close()
-	return urlFromBody, err
+	return body["bodyURL"], err
 }
 
 func GetButtonIdFromBody(c *gin.Context) (string, error) {
 	reqBody, err := io.ReadAll(c.Request.Body)
-	buttonIdFromBody := ""
+	var body map[string]string
 	if err != nil {
 		fmt.Println("Error reading body:", err)
 	}
-	json.Unmarshal(reqBody, &buttonIdFromBody)
+	json.Unmarshal(reqBody, &body)
 	c.Request.Body.Close()
-	return buttonIdFromBody, err
+	return body["buttonID"], err
 }
 
 func CheckIfRepoAlreadyCloned(repoFolderName string) bool {

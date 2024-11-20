@@ -23,7 +23,7 @@ func StartContainer(c *gin.Context) {
 	}
 
 	// Get the URL for the repo we want to clone
-	url, err := util.GetUrlFromHeader(c)
+	url, err := util.GetUrlFromBody(c)
 	if err != nil {
 		fmt.Println(err)
 	}
